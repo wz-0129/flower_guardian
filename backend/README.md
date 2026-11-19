@@ -232,7 +232,7 @@ python train/export_onnx.py --type all
 
 | 变量 | 描述 | 默认值 |
 |------|------|--------|
-| `DATABASE_URL` | PostgreSQL 连接字符串 | 见「数据库」一节 |
+| `DATABASE_URL` | PostgreSQL 连接字符串 | - |
 | `SECRET_KEY` | JWT 密钥 | `your-secret-key` |
 | `ALGORITHM` | JWT 算法 | `HS256` |
 | `ACCESS_TOKEN_EXPIRE_MINUTES` | Token 过期时间 | `30` |
