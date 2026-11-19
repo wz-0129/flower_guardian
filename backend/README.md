@@ -50,6 +50,64 @@ docker build -t flower-guardian-backend .
 docker run -d -p 8000:8000 --name backend flower-guardian-backend
 ```
 
+### 数据库（PostgreSQL）
+
+后端有两种起法，连接串要跟着变：
+
+**方式一：Docker Compose 整套起**（数据库在容器里）
+
+```bash
+# 仓库根目录
+docker-compose up -d
+```
+
+后端容器里用的是 compose 内的服务名 `postgres:5432`（`docker-compose.yml` 已配好），容器启动时会自动执行 `python -m app.db.seed` 建表并写入种子数据。
+
+**方式二：本地跑后端 + 容器里只起数据库**
+
+```bash
+# 1. 仓库根目录，只启动 PostgreSQL
+docker-compose up -d postgres
+
+# 2. 等数据库就绪（STATUS 为 healthy 再继续，否则 seed 会连接被拒）
+docker-compose ps postgres
+
+# 3. backend 目录准备环境变量（程序读取的是 backend/.env）
+cd backend
+cp .env.example .env
+```
+
+把 `backend/.env` 里的连接串改成与 `docker-compose.yml` 一致（模板里端口已是 5432，要改的是用户名/密码）：
+
+```dotenv
+DATABASE_URL=postgresql://flower_user:flower_password@localhost:5432/flower_guardian
+```
+
+```bash
+# 4. 建表 + 写入种子数据（可重复执行，库里已有数据会跳过）
+python -m app.db.seed
+
+# 5. 启动后端
+uvicorn app.main:app --reload --port 8000
+```
+
+**连接不上的常见原因**
+
+- 没建 `backend/.env`：`app/core/config.py` 的默认值是 `postgresql://user:password@localhost:5555/flower_guardian`，**5555 和 compose 映射的 5432 对不上**。
+- 数据库还没就绪：`docker-compose up -d postgres` 返回不代表已能连接，先 `docker-compose ps postgres` 看是否 healthy。
+- 用户名/密码没改：模板是 `user/password`，compose 里是 `flower_user/flower_password`。
+
+**验证与重置**
+
+```bash
+# 进 psql 看表
+docker-compose exec postgres psql -U flower_user -d flower_guardian -c '\dt'
+
+# 清空数据卷重建（谨慎，会删除全部数据）
+docker-compose down -v
+docker-compose up -d postgres
+```
+
 ## 📁 项目结构
 
 ```
@@ -174,7 +232,7 @@ python train/export_onnx.py --type all
 
 | 变量 | 描述 | 默认值 |
 |------|------|--------|
-| `DATABASE_URL` | PostgreSQL 连接字符串 | - |
+| `DATABASE_URL` | PostgreSQL 连接字符串 | 见「数据库」一节 |
 | `SECRET_KEY` | JWT 密钥 | `your-secret-key` |
 | `ALGORITHM` | JWT 算法 | `HS256` |
 | `ACCESS_TOKEN_EXPIRE_MINUTES` | Token 过期时间 | `30` |
